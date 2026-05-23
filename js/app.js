@@ -1,5 +1,5 @@
 // ========================
-// 配置（请替换为你自己的 Supabase 信息）
+// 配置
 // ========================
 const SUPABASE_URL = "https://afvukqjluoxzuouhiufw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";
@@ -31,8 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let conversationMessages = [
     { role: "system", content: "你是一个有帮助的助手，使用中文回答。" }
   ];
+  let realtimeChannel = null;  // 用于存储实时订阅频道
 
-  // ---------- DOM 元素（使用安全的获取方式，若获取不到则为 null） ----------
+  // ---------- DOM 元素 ----------
   const $ = (id) => document.getElementById(id);
 
   const loginContainer = $("login-container");
@@ -81,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
     textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
   };
 
-  // 日志输出（同时输出到日志区和控制台）
   const addLog = (level, component, message, details = {}) => {
     const now = new Date();
     const timeStr = now.toTimeString().slice(0, 8) + "." + String(now.getMilliseconds()).padStart(3, "0");
@@ -105,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // 更新 API 信息面板
   const updateApiUrlDisplay = () => {
     if (apiUrl) apiUrl.textContent = actualApiUrl;
   };
@@ -166,11 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
     addLog("INFO", "APP", "Conversation context cleared due to model switch");
   };
 
-  // 绑定模型选择按钮
   if (modelSelectBtn) {
     modelSelectBtn.addEventListener("click", toggleModelDropdown);
   }
-  // 点击页面其他区域关闭下拉菜单
   document.addEventListener("click", (e) => {
     if (modelDropdownVisible && !e.target.closest("#api-info")) {
       document.querySelector(".model-dropdown")?.remove();
@@ -268,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
       appContainer?.classList.remove("hidden");
       updateUserUI();
       loadDiscussion();
+      subscribeToDiscussion();   // 开启实时订阅
       updateApiInfo("Idle");
       addLog("INFO", "APP", "Chat UI loaded", { user: nickname });
     });
@@ -292,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (chatMessages) chatMessages.innerHTML = "";
       conversationMessages = [{ role: "system", content: "你是一个有帮助的助手，使用中文回答。" }];
       if (logContent) logContent.innerHTML = "";
+      unsubscribeFromDiscussion();  // 取消实时订阅
       addLog("INFO", "AUTH", "User signed out, UI reset");
     });
   }
@@ -314,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appContainer?.classList.remove("hidden");
         updateUserUI();
         loadDiscussion();
+        subscribeToDiscussion();   // 开启实时订阅
         addLog("INFO", "AUTH", "Session restored", { nickname: currentNickname });
         updateApiInfo("Idle");
       } else {
@@ -458,15 +458,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return row;
   }
 
-  // ---------- 讨论区功能 ----------
-  // 强制绑定按钮和输入框（不使用可选链，确保一定绑定）
+  // ---------- 讨论区功能 + 实时订阅 ----------
+
+  // 强制绑定发送按钮
   if (sendDiscussionBtn) {
     sendDiscussionBtn.addEventListener("click", (e) => {
       e.preventDefault();
       sendDiscussion();
     });
   } else {
-    console.error("讨论区发送按钮未找到，请检查 HTML 中 ID 是否为 send-discussion-btn");
+    console.error("讨论区发送按钮未找到！");
   }
 
   if (discussionInput) {
@@ -478,9 +479,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     discussionInput.addEventListener("input", () => autoResize(discussionInput));
   } else {
-    console.error("讨论区输入框未找到，请检查 HTML 中 ID 是否为 discussion-input");
+    console.error("讨论区输入框未找到！");
   }
 
+  // 追加单条讨论消息到界面（用于实时接收）
+  function appendDiscussionMessage(msg) {
+    if (!discussionMessages) return;
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "discuss-msg";
+    msgDiv.innerHTML = `
+      <img class="discuss-avatar" src="avatars/${msg.nickname}.png" alt="">
+      <div>
+        <div class="discuss-content">
+          <span class="discuss-nickname">${msg.nickname}</span>${escapeHtml(msg.content)}
+        </div>
+        <div class="discuss-time">${new Date(msg.created_at).toLocaleString("zh-CN")}</div>
+      </div>
+    `;
+    discussionMessages.appendChild(msgDiv);
+    discussionMessages.scrollTop = discussionMessages.scrollHeight;
+  }
+
+  // 开启实时订阅
+  function subscribeToDiscussion() {
+    if (realtimeChannel) {
+      // 如果已经有频道，先取消
+      supabaseClient.removeChannel(realtimeChannel);
+    }
+
+    realtimeChannel = supabaseClient
+      .channel('public:messages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          // 只追加他人发送的消息（自己的消息已在 sendDiscussion 中立即显示）
+          if (payload.new.user_id !== currentUser?.id) {
+            appendDiscussionMessage(payload.new);
+          }
+        }
+      )
+      .subscribe();
+
+    addLog("INFO", "DISCUSS", "Realtime subscription started");
+  }
+
+  // 取消实时订阅
+  function unsubscribeFromDiscussion() {
+    if (realtimeChannel) {
+      supabaseClient.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+      addLog("INFO", "DISCUSS", "Realtime subscription stopped");
+    }
+  }
+
+  // 初始加载全部讨论消息
   async function loadDiscussion() {
     if (!currentUser) return;
     addLog("INFO", "DISCUSS", "Loading discussion messages from DB");
@@ -497,24 +550,11 @@ document.addEventListener('DOMContentLoaded', () => {
     addLog("INFO", "DISCUSS", "Rendering discussion panel", { count: data.length });
     if (discussionMessages) {
       discussionMessages.innerHTML = "";
-      data.forEach(msg => {
-        const msgDiv = document.createElement("div");
-        msgDiv.className = "discuss-msg";
-        msgDiv.innerHTML = `
-          <img class="discuss-avatar" src="avatars/${msg.nickname}.png" alt="">
-          <div>
-            <div class="discuss-content">
-              <span class="discuss-nickname">${msg.nickname}</span>${escapeHtml(msg.content)}
-            </div>
-            <div class="discuss-time">${new Date(msg.created_at).toLocaleString("zh-CN")}</div>
-          </div>
-        `;
-        discussionMessages.appendChild(msgDiv);
-      });
-      discussionMessages.scrollTop = discussionMessages.scrollHeight;
+      data.forEach(msg => appendDiscussionMessage(msg));
     }
   }
 
+  // 发送讨论消息（自己发送的消息会立即显示，并且会通过实时订阅在其他客户端显示）
   async function sendDiscussion() {
     if (!discussionInput) return;
     const content = discussionInput.value.trim();
@@ -540,10 +580,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    addLog("INFO", "DISCUSS", "Message inserted successfully, refreshing display", { preview: msgPreview });
+    // 自己发送的消息不需要等待数据库返回，直接清空输入框即可
+    // 实时订阅会负责更新自己的界面（但因为过滤了 user_id，所以这里不会重复添加）
+    addLog("INFO", "DISCUSS", "Message inserted successfully", { preview: msgPreview });
     discussionInput.value = "";
     autoResize(discussionInput);
-    await loadDiscussion();
+    // 不需要手动 loadDiscussion()，订阅会自动处理
   }
 
 });
