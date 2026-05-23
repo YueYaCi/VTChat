@@ -6,6 +6,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";     
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// API信息
+let actualApiUrl = "Loading...";   // 实际 API URL，每收到响应时更新
+
 // 昵称映射
 const NICKNAME_MAP = {
   "兵": "bing@chat.local",
@@ -107,6 +110,11 @@ const apiRespLen = document.getElementById("api-resp-len");
 // ========================
 // 4. API 信息更新
 // ========================
+function updateApiUrlDisplay() {
+  const apiUrlEl = document.getElementById("api-url");
+  if (apiUrlEl) apiUrlEl.textContent = actualApiUrl;
+}
+
 function updateApiInfo(status, respLen = null) {
   apiModel.textContent = "deepseek-v4-pro";
   apiRounds.textContent = conversationMessages.length - 1;
@@ -117,8 +125,9 @@ function updateApiInfo(status, respLen = null) {
   } else {
     apiRespLen.textContent = "—";
   }
+  // 同时确保 URL 显示保持最新（首次可能还未读取到，显示 Loading...）
+  updateApiUrlDisplay();
 }
-
 // ========================
 // 5. 登录 / 退出
 // ========================
@@ -253,14 +262,21 @@ async function sendMessage() {
     const accessToken = session?.access_token;
     if (!accessToken) throw new Error("Missing access token");
 
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-proxy`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`
-      },
-      body: JSON.stringify({ messages: conversationMessages })
-    });
+const response = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-proxy`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${accessToken}`
+  },
+  body: JSON.stringify({ messages: conversationMessages })
+});
+
+// 动态读取实际 API URL
+const returnedUrl = response.headers.get("X-Actual-API-URL");
+if (returnedUrl) {
+  actualApiUrl = returnedUrl;
+  updateApiUrlDisplay();   // 单独更新 URL 显示
+}
 
     addLog("INFO", "API", "Received HTTP response", { status: response.status, ok: response.ok });
 
