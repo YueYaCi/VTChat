@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>DeepChat</title>
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 自定义样式 -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 登录界面 -->
+  <div id="login-container">
+    <h2>DeepChat</h2>
+    <div class="input-group">
+      <label>昵称</label>
+      <input type="text" id="nickname-input" placeholder="输入昵称" autocomplete="off">
+    </div>
+    <div class="input-group">
+      <label>密码</label>
+      <input type="password" id="password-input" placeholder="输入密码">
+    </div>
+    <button id="login-btn">登录</button>
+    <div id="login-error"></div>
+  </div>
+
+  <!-- 主聊天界面（初始隐藏） -->
+  <div id="chat-container" class="hidden">
+    <div id="top-bar">
+      <div id="user-info">
+        <img id="avatar-small" src="" alt="avatar">
+        <span id="nickname-display"></span>
+      </div>
+      <div id="top-actions">
+        <button id="discussion-btn">>讨论区</button>
+        <button id="logout-btn">退出</button>
+      </div>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="input-area">
+      <textarea id="user-input" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+      <button id="send-btn">发送</button>
+    </div>
+  </div>
+
+  <!-- 讨论区模态框（初始隐藏） -->
+  <div id="modal-overlay" class="hidden">
+    <div id="discussion-panel">
+      <div id="discussion-header">
+        <h3>讨论区</h3>
+        <button id="close-discussion">&times;</button>
+      </div>
+      <div id="discussion-messages"></div>
+      <div id="discussion-input-area">
+        <input type="text" id="discussion-input" placeholder="说点什么...">
+        <button id="send-discussion-btn">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自定义脚本 -->
+  <script src="js/app.js"></script>
+</body>
+</html>
