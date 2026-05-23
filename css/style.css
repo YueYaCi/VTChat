@@ -475,3 +475,125 @@ body::before {
 #send-discussion-btn:hover {
   background: #00a5a8;
 }
+
+/* ===== API 控制区（模型选择 & 测试） ===== */
+#api-actions {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(48, 54, 61, 0.3);
+  padding-top: 0.8rem;
+}
+
+.actions-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+/* 按钮基础样式 */
+.api-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: rgba(48, 54, 61, 0.35);
+  border: 1px solid rgba(48, 54, 61, 0.6);
+  border-radius: 6px;
+  color: #c9d1d9;
+  padding: 0.55rem 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.api-action-btn:hover {
+  background: rgba(0, 188, 190, 0.15);
+  border-color: #00BCBE;
+  color: #00BCBE;
+  box-shadow: 0 0 6px rgba(0, 188, 190, 0.2);
+}
+
+.api-action-btn:active {
+  transform: scale(0.96);
+}
+
+/* 按钮内图标 */
+.btn-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* 模型选择下拉菜单 */
+.model-dropdown {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  background: rgba(22, 27, 34, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  margin-top: 0.3rem;
+  z-index: 100;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+}
+
+.model-option {
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.3);
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #c9d1d9;
+}
+
+.model-option:last-child {
+  border-bottom: none;
+}
+
+.model-option:hover {
+  background: rgba(0, 188, 190, 0.2);
+}
+
+.model-option.active {
+  background: rgba(0, 188, 190, 0.25);
+  color: #00BCBE;
+  font-weight: 600;
+}
+
+.model-option-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #30363d;
+}
+
+/* API 测试状态提示 */
+.api-status-message {
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-bottom: 0.6rem;
+  text-align: center;
+  transition: all 0.25s;
+}
+
+.api-status-message.success {
+  background: rgba(63, 185, 80, 0.2);
+  border: 1px solid rgba(63, 185, 80, 0.5);
+  color: #3fb950;
+}
+
+.api-status-message.error {
+  background: rgba(248, 81, 73, 0.2);
+  border: 1px solid rgba(248, 81, 73, 0.5);
+  color: #f85149;
+}
+
+.hidden {
+  display: none !important;
+}

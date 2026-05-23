@@ -1,8 +1,8 @@
 // ========================
 // 1. 初始化 Supabase 客户端
 // ========================
-const SUPABASE_URL = "https://afvukqjluoxzuouhiufw.supabase.co";   //  Project URL
-const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";                     //  Publishable key
+const SUPABASE_URL = "https://afvukqjluoxzuouhiufw.supabase.co";   // 替换为你的 Project URL
+const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";                     // 替换为你的 Publishable key
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -14,11 +14,16 @@ const NICKNAME_MAP = {
   "周": "zhou@chat.local"
 };
 
-// 当前状态
+// ========================
+// 2. 全局状态
+// ========================
 let currentUser = null;
 let currentNickname = "";
 let currentAvatar = "";
-let actualApiUrl = "Loading...";   // 动态 API URL
+let actualApiUrl = "Loading...";        // 动态 API URL
+let currentModel = "deepseek-v4-pro";   // 当前选中模型
+let currentProvider = "deepseek";       // 当前模型提供商
+let modelDropdownVisible = false;       // 模型下拉菜单是否打开
 
 // 对话上下文
 let conversationMessages = [
@@ -26,7 +31,7 @@ let conversationMessages = [
 ];
 
 // ========================
-// 2. 结构化日志系统
+// 3. 结构化日志系统
 // ========================
 const logContainer = document.getElementById("log-content");
 
@@ -63,7 +68,7 @@ function addLog(level, component, message, details = {}) {
 }
 
 // ========================
-// 3. DOM 元素引用
+// 4. DOM 元素引用
 // ========================
 // 登录
 const loginContainer = document.getElementById("login-container");
@@ -96,8 +101,14 @@ const apiLastTime = document.getElementById("api-last-time");
 const apiStatus = document.getElementById("api-status");
 const apiRespLen = document.getElementById("api-resp-len");
 
+// API 控制按钮
+const modelSelectBtn = document.getElementById("model-select-btn");
+const apiTestBtn = document.getElementById("api-test-btn");
+const apiTestStatus = document.getElementById("api-test-status");
+const apiInfoDiv = document.getElementById("api-info");
+
 // ========================
-// 4. 工具函数
+// 5. 工具函数
 // ========================
 function escapeHtml(text) {
   const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
@@ -109,9 +120,14 @@ function autoResize(textarea) {
   textarea.style.height = Math.min(textarea.scrollHeight, parseInt(textarea.style.maxHeight)) + 'px';
 }
 
+// 更新 API URL 显示
+function updateApiUrlDisplay() {
+  if (apiUrl) apiUrl.textContent = actualApiUrl;
+}
+
 // 更新 API 信息面板
 function updateApiInfo(status, respLen = null) {
-  apiModel.textContent = "deepseek-v4-pro";
+  apiModel.textContent = currentModel;
   apiRounds.textContent = conversationMessages.length - 1;
   apiLastTime.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
   apiStatus.textContent = status;
@@ -120,17 +136,134 @@ function updateApiInfo(status, respLen = null) {
   } else {
     apiRespLen.textContent = "—";
   }
-  // 更新 API URL 显示
-  if (apiUrl) apiUrl.textContent = actualApiUrl;
-}
-
-// 动态更新 API URL 显示（响应头获取后调用）
-function updateApiUrlDisplay() {
-  if (apiUrl) apiUrl.textContent = actualApiUrl;
+  updateApiUrlDisplay();
 }
 
 // ========================
-// 5. 登录 / 退出
+// 6. 模型选择逻辑
+// ========================
+function toggleModelDropdown() {
+  const existingDropdown = document.querySelector(".model-dropdown");
+  if (existingDropdown) {
+    existingDropdown.remove();
+    modelDropdownVisible = false;
+    return;
+  }
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "model-dropdown";
+
+  const models = [
+    {
+      name: "deepseek-v4-pro",
+      provider: "deepseek",
+      label: "DeepSeek V4 Pro",
+      avatar: "avatars/deepseek.png"
+    },
+    {
+      name: "mimo-v2.5",
+      provider: "mimo",
+      label: "MiMo V2.5",
+      avatar: "avatars/xiaomi.png"
+    }
+  ];
+
+  models.forEach(model => {
+    const option = document.createElement("div");
+    option.className = `model-option ${model.name === currentModel ? "active" : ""}`;
+    option.innerHTML = `
+      <img class="model-option-icon" src="${model.avatar}" alt="">
+      <span>${model.label}</span>
+    `;
+    option.addEventListener("click", () => selectModel(model));
+    dropdown.appendChild(option);
+  });
+
+  // 使父容器相对定位，下拉菜单绝对定位
+  apiInfoDiv.style.position = "relative";
+  apiInfoDiv.appendChild(dropdown);
+  modelDropdownVisible = true;
+}
+
+async function selectModel(model) {
+  currentModel = model.name;
+  currentProvider = model.provider;
+  addLog("INFO", "APP", "Model switched", { model: currentModel, provider: currentProvider });
+  apiModel.textContent = currentModel;
+  document.querySelector(".model-dropdown")?.remove();
+  modelDropdownVisible = false;
+  // 切换模型后清空对话上下文
+  conversationMessages = [
+    { role: "system", content: "你是一个有帮助的助手，使用中文回答。" }
+  ];
+  chatMessages.innerHTML = "";
+  addLog("INFO", "APP", "Conversation context cleared due to model switch");
+}
+
+modelSelectBtn.addEventListener("click", toggleModelDropdown);
+document.addEventListener("click", (e) => {
+  if (modelDropdownVisible && !e.target.closest("#api-info")) {
+    document.querySelector(".model-dropdown")?.remove();
+    modelDropdownVisible = false;
+  }
+});
+
+// ========================
+// 7. API 连通性测试
+// ========================
+async function testApiConnection() {
+  apiTestStatus.classList.remove("hidden", "success", "error");
+  apiTestStatus.textContent = "⏳ 正在测试 API 连通性...";
+  apiTestStatus.className = "api-status-message info";
+  addLog("INFO", "API", "Initiating API connectivity test");
+
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) throw new Error("Missing access token");
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: "Hi" }],
+        provider: currentProvider
+      })
+    });
+
+    const returnedUrl = response.headers.get("X-Actual-API-URL");
+    if (returnedUrl) {
+      actualApiUrl = returnedUrl;
+      updateApiUrlDisplay();
+      addLog("INFO", "API", "API URL updated via test", { url: actualApiUrl });
+    }
+
+    if (response.ok) {
+      apiTestStatus.textContent = "✅ API 连接正常";
+      apiTestStatus.className = "api-status-message success";
+      addLog("INFO", "API", "Connectivity test passed", { status: response.status });
+    } else {
+      const errText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errText}`);
+    }
+  } catch (error) {
+    apiTestStatus.textContent = `❌ API 连接失败: ${error.message}`;
+    apiTestStatus.className = "api-status-message error";
+    addLog("ERROR", "API", "Connectivity test failed", { error: error.message });
+  }
+
+  setTimeout(() => {
+    apiTestStatus.classList.add("hidden");
+  }, 5000);
+}
+
+apiTestBtn.addEventListener("click", testApiConnection);
+
+// ========================
+// 8. 登录 / 退出
 // ========================
 loginBtn.addEventListener("click", async () => {
   const nickname = nicknameInput.value.trim();
@@ -225,7 +358,7 @@ async function checkSession() {
 checkSession();
 
 // ========================
-// 6. 对话功能
+// 9. 对话功能
 // ========================
 sendBtn.addEventListener("click", sendMessage);
 userInput.addEventListener("keydown", (e) => {
@@ -254,7 +387,11 @@ async function sendMessage() {
   const startTime = performance.now();
   updateApiInfo("Requesting...");
 
-  addLog("INFO", "API", "Sending chat request to Edge Function", { model: "deepseek-v4-pro", rounds: conversationMessages.length - 1 });
+  addLog("INFO", "API", "Sending chat request to Edge Function", {
+    model: currentModel,
+    provider: currentProvider,
+    rounds: conversationMessages.length - 1
+  });
 
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -267,7 +404,10 @@ async function sendMessage() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`
       },
-      body: JSON.stringify({ messages: conversationMessages })
+      body: JSON.stringify({
+        messages: conversationMessages,
+        provider: currentProvider
+      })
     });
 
     // 动态读取实际 API URL
@@ -334,7 +474,13 @@ async function sendMessage() {
 function appendMessage(role, content) {
   const row = document.createElement("div");
   row.className = `message-row ${role}`;
-  const avatarSrc = role === "user" ? currentAvatar : "avatars/deepseek.png";
+  // 根据当前提供商决定助手头像
+  let avatarSrc;
+  if (role === "user") {
+    avatarSrc = currentAvatar;
+  } else {
+    avatarSrc = currentProvider === "mimo" ? "avatars/xiaomi.png" : "avatars/deepseek.png";
+  }
   row.innerHTML = `
     <img class="message-avatar" src="${avatarSrc}" alt="">
     <div class="message-bubble">${content}</div>
@@ -345,7 +491,7 @@ function appendMessage(role, content) {
 }
 
 // ========================
-// 7. 讨论区功能
+// 10. 讨论区功能
 // ========================
 discussionInput.addEventListener("input", () => autoResize(discussionInput));
 discussionInput.addEventListener("keydown", (e) => {
