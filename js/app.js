@@ -1,8 +1,8 @@
 // ========================
 // 1. 初始化 Supabase 客户端
 // ========================
-const SUPABASE_URL = "https://afvukqjluoxzuouhiufw.supabase.co";   // Project URL
-const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";                     // Publishable key
+const SUPABASE_URL = "https://afvukqjluoxzuouhiufw.supabase.co";   //  Project URL
+const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";                     //  Publishable key
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -25,7 +25,54 @@ let conversationMessages = [
 ];
 
 // ========================
-// 2. DOM 元素
+// 2. 结构化日志系统
+// ========================
+const logContainer = document.getElementById("log-content");
+
+/**
+ * 添加日志条目
+ * @param {string} level - INFO | DEBUG | WARN | ERROR
+ * @param {string} component - AUTH | CHAT | DISCUSS | API | DB
+ * @param {string} message - 英文简要描述
+ * @param {object} [details] - 附加键值对
+ */
+function addLog(level, component, message, details = {}) {
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0, 8) + "." + String(now.getMilliseconds()).padStart(3, "0");
+
+  // 构建附加信息字符串
+  const detailStr = Object.entries(details)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(" ");
+
+  // 界面显示行
+  const lineText = `${timeStr} ${level.padEnd(5)} [${component.padEnd(7)}] ${message}${detailStr ? " — " + detailStr : ""}`;
+
+  // 渲染到界面
+  const entryDiv = document.createElement("div");
+  entryDiv.className = `log-entry ${level.toLowerCase()}`;
+  entryDiv.textContent = lineText;
+  logContainer.appendChild(entryDiv);
+  logContainer.scrollTop = logContainer.scrollHeight;
+
+  // 同时输出到浏览器控制台（完整对象）
+  const consoleMsg = {
+    time: now.toISOString(),
+    level,
+    component,
+    message,
+    details
+  };
+  switch (level) {
+    case "ERROR": console.error(consoleMsg); break;
+    case "WARN": console.warn(consoleMsg); break;
+    case "DEBUG": console.debug(consoleMsg); break;
+    default: console.info(consoleMsg);
+  }
+}
+
+// ========================
+// 3. DOM 元素
 // ========================
 // 登录
 const loginContainer = document.getElementById("login-container");
@@ -57,31 +104,16 @@ const apiLastTime = document.getElementById("api-last-time");
 const apiStatus = document.getElementById("api-status");
 const apiRespLen = document.getElementById("api-resp-len");
 
-// 日志
-const logContent = document.getElementById("log-content");
-
 // ========================
-// 3. 日志系统
-// ========================
-function addLog(message, type = "info") {
-  const entry = document.createElement("div");
-  entry.className = `log-entry ${type}`;
-  const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-  entry.textContent = `[${time}] ${message}`;
-  logContent.appendChild(entry);
-  logContent.scrollTop = logContent.scrollHeight;
-}
-
-// ========================
-// 4. 更新 API 信息
+// 4. API 信息更新
 // ========================
 function updateApiInfo(status, respLen = null) {
   apiModel.textContent = "deepseek-chat";
-  apiRounds.textContent = conversationMessages.length - 1; // 减去 system 提示
+  apiRounds.textContent = conversationMessages.length - 1;
   apiLastTime.textContent = new Date().toLocaleTimeString("zh-CN", { hour12: false });
   apiStatus.textContent = status;
   if (respLen !== null) {
-    apiRespLen.textContent = respLen + " 字符";
+    apiRespLen.textContent = respLen + " chars";
   } else {
     apiRespLen.textContent = "—";
   }
@@ -95,14 +127,17 @@ loginBtn.addEventListener("click", async () => {
   const password = passwordInput.value;
   if (!nickname || !password) {
     loginError.textContent = "请输入昵称和密码";
+    addLog("WARN", "AUTH", "Login attempt with empty credentials", { nickname, hasPassword: !!password });
     return;
   }
   const email = NICKNAME_MAP[nickname];
   if (!email) {
     loginError.textContent = "昵称不存在";
+    addLog("WARN", "AUTH", "Login attempt with invalid nickname", { nickname });
     return;
   }
 
+  addLog("INFO", "AUTH", "Attempting sign-in", { nickname, email });
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email,
     password
@@ -110,19 +145,21 @@ loginBtn.addEventListener("click", async () => {
 
   if (error) {
     loginError.textContent = "登录失败：" + error.message;
+    addLog("ERROR", "AUTH", "Sign-in failed", { error: error.message, status: error.status });
     return;
   }
 
   currentUser = data.user;
   currentNickname = nickname;
   currentAvatar = `avatars/${nickname}.png`;
+  addLog("INFO", "AUTH", "Sign-in successful", { userId: currentUser.id, nickname });
 
   loginContainer.classList.add("hidden");
   appContainer.classList.remove("hidden");
   updateUserUI();
   loadDiscussion();
-  addLog(`${nickname} 已登录`, "success");
-  updateApiInfo("就绪");
+  updateApiInfo("Idle");
+  addLog("INFO", "APP", "Chat UI loaded", { user: nickname });
 });
 
 function updateUserUI() {
@@ -131,7 +168,7 @@ function updateUserUI() {
 }
 
 logoutBtn.addEventListener("click", async () => {
-  addLog(`${currentNickname} 退出登录`, "info");
+  addLog("INFO", "AUTH", "Manual sign-out initiated", { nickname: currentNickname });
   await supabaseClient.auth.signOut();
   currentUser = null;
   appContainer.classList.add("hidden");
@@ -143,7 +180,8 @@ logoutBtn.addEventListener("click", async () => {
   conversationMessages = [
     { role: "system", content: "你是一个有帮助的助手，使用中文回答。" }
   ];
-  logContent.innerHTML = "";
+  logContainer.innerHTML = "";
+  addLog("INFO", "AUTH", "User signed out, UI reset");
 });
 
 // 会话保持
@@ -164,11 +202,14 @@ async function checkSession() {
       appContainer.classList.remove("hidden");
       updateUserUI();
       loadDiscussion();
-      addLog(`${currentNickname} 已自动登录`, "success");
-      updateApiInfo("就绪");
+      addLog("INFO", "AUTH", "Session restored", { nickname: currentNickname });
+      updateApiInfo("Idle");
     } else {
+      addLog("WARN", "AUTH", "Session found but nickname unrecognized, signing out");
       await supabaseClient.auth.signOut();
     }
+  } else {
+    addLog("INFO", "AUTH", "No active session detected");
   }
 }
 checkSession();
@@ -188,23 +229,26 @@ async function sendMessage() {
   const text = userInput.value.trim();
   if (!text || !currentUser) return;
 
+  const userMsgId = Date.now().toString(36);
+  addLog("INFO", "CHAT", "User message input", { id: userMsgId, from: currentNickname, length: text.length, preview: text.slice(0, 50) });
+
   appendMessage("user", text);
   conversationMessages.push({ role: "user", content: text });
   userInput.value = "";
   userInput.style.height = "auto";
   sendBtn.disabled = true;
-  addLog(`发送消息: ${text.slice(0, 30)}…`, "info");
 
   const assistantMsgDiv = appendMessage("assistant", "");
   let fullReply = "";
+  const startTime = performance.now();
+  updateApiInfo("Requesting...");
 
-  const startTime = Date.now();
-  updateApiInfo("请求中...");
+  addLog("INFO", "API", "Sending chat request to Edge Function", { rounds: conversationMessages.length - 1 });
 
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const accessToken = session?.access_token;
-    if (!accessToken) throw new Error("No access token");
+    if (!accessToken) throw new Error("Missing access token");
 
     const response = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-proxy`, {
       method: "POST",
@@ -215,44 +259,54 @@ async function sendMessage() {
       body: JSON.stringify({ messages: conversationMessages })
     });
 
+    addLog("INFO", "API", "Received HTTP response", { status: response.status, ok: response.ok });
+
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(errText);
+      throw new Error(`HTTP ${response.status}: ${errText}`);
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let done = false;
+    let chunkCount = 0;
 
     while (!done) {
       const { value, done: readerDone } = await reader.read();
       done = readerDone;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n");
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              fullReply += delta;
-              assistantMsgDiv.querySelector(".message-bubble").textContent = fullReply;
-            }
-          } catch (e) { }
+      if (value) {
+        chunkCount++;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              const delta = parsed.choices?.[0]?.delta?.content;
+              if (delta) {
+                fullReply += delta;
+                assistantMsgDiv.querySelector(".message-bubble").textContent = fullReply;
+              }
+            } catch (e) { }
+          }
         }
       }
     }
 
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+    addLog("INFO", "API", "Stream completed", {
+      chunks: chunkCount,
+      replyLength: fullReply.length,
+      elapsed: elapsed + "s"
+    });
     conversationMessages.push({ role: "assistant", content: fullReply });
-    addLog(`接收完成 (${fullReply.length} 字符, 耗时 ${((Date.now() - startTime)/1000).toFixed(1)}s)`, "success");
-    updateApiInfo("成功", fullReply.length);
+    updateApiInfo("Success", fullReply.length);
   } catch (error) {
     assistantMsgDiv.querySelector(".message-bubble").textContent = "请求出错：" + error.message;
-    addLog(`请求失败: ${error.message}`, "error");
-    updateApiInfo("失败");
+    addLog("ERROR", "API", "Chat request failed", { error: error.message });
+    updateApiInfo("Failed");
   } finally {
     sendBtn.disabled = false;
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -277,16 +331,18 @@ function appendMessage(role, content) {
 // ========================
 async function loadDiscussion() {
   if (!currentUser) return;
+  addLog("INFO", "DISCUSS", "Loading discussion messages from DB");
   const { data, error } = await supabaseClient
     .from("messages")
     .select("*")
     .order("created_at", { ascending: true });
 
   if (error) {
-    addLog(`加载讨论区失败: ${error.message}`, "error");
+    addLog("ERROR", "DB", "Failed to fetch discussion messages", { error: error.message, code: error.code });
     return;
   }
 
+  addLog("INFO", "DISCUSS", "Rendering discussion panel", { count: data.length });
   discussionMessages.innerHTML = "";
   data.forEach(msg => {
     const msgDiv = document.createElement("div");
@@ -314,6 +370,13 @@ async function sendDiscussion() {
   const content = discussionInput.value.trim();
   if (!content || !currentUser) return;
 
+  const msgPreview = content.slice(0, 50);
+  addLog("INFO", "DISCUSS", "Attempting to insert discussion message", {
+    from: currentNickname,
+    length: content.length,
+    preview: msgPreview
+  });
+
   const { error } = await supabaseClient
     .from("messages")
     .insert([
@@ -325,12 +388,13 @@ async function sendDiscussion() {
     ]);
 
   if (error) {
-    addLog(`讨论区发送失败: ${error.message}`, "error");
+    addLog("ERROR", "DB", "Insert discussion message failed", { error: error.message, code: error.code });
     return;
   }
-  addLog(`${currentNickname} 在讨论区发言`, "info");
+
+  addLog("INFO", "DISCUSS", "Message inserted successfully, refreshing display", { preview: msgPreview });
   discussionInput.value = "";
-  loadDiscussion();
+  await loadDiscussion();
 }
 
 function escapeHtml(text) {
