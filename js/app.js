@@ -6,9 +6,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_1qYYVcrzSjwy8_-41Eeuig_dAjU9Zqd";     
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// API信息
-let actualApiUrl = "Loading...";   // 实际 API URL，每收到响应时更新
-
 // 昵称映射
 const NICKNAME_MAP = {
   "兵": "bing@chat.local",
@@ -21,6 +18,7 @@ const NICKNAME_MAP = {
 let currentUser = null;
 let currentNickname = "";
 let currentAvatar = "";
+let actualApiUrl = "Loading...";   // 动态 API URL
 
 // 对话上下文
 let conversationMessages = [
@@ -32,33 +30,23 @@ let conversationMessages = [
 // ========================
 const logContainer = document.getElementById("log-content");
 
-/**
- * 添加日志条目
- * @param {string} level - INFO | DEBUG | WARN | ERROR
- * @param {string} component - AUTH | CHAT | DISCUSS | API | DB
- * @param {string} message - 英文简要描述
- * @param {object} [details] - 附加键值对
- */
 function addLog(level, component, message, details = {}) {
   const now = new Date();
   const timeStr = now.toTimeString().slice(0, 8) + "." + String(now.getMilliseconds()).padStart(3, "0");
 
-  // 构建附加信息字符串
   const detailStr = Object.entries(details)
     .map(([k, v]) => `${k}=${v}`)
     .join(" ");
 
-  // 界面显示行
   const lineText = `${timeStr} ${level.padEnd(5)} [${component.padEnd(7)}] ${message}${detailStr ? " — " + detailStr : ""}`;
 
-  // 渲染到界面
   const entryDiv = document.createElement("div");
   entryDiv.className = `log-entry ${level.toLowerCase()}`;
   entryDiv.textContent = lineText;
   logContainer.appendChild(entryDiv);
   logContainer.scrollTop = logContainer.scrollHeight;
 
-  // 同时输出到浏览器控制台（完整对象）
+  // 同步输出到浏览器控制台
   const consoleMsg = {
     time: now.toISOString(),
     level,
@@ -75,7 +63,7 @@ function addLog(level, component, message, details = {}) {
 }
 
 // ========================
-// 3. DOM 元素
+// 3. DOM 元素引用
 // ========================
 // 登录
 const loginContainer = document.getElementById("login-container");
@@ -102,19 +90,26 @@ const sendDiscussionBtn = document.getElementById("send-discussion-btn");
 
 // API 信息显示
 const apiModel = document.getElementById("api-model");
+const apiUrl = document.getElementById("api-url");
 const apiRounds = document.getElementById("api-rounds");
 const apiLastTime = document.getElementById("api-last-time");
 const apiStatus = document.getElementById("api-status");
 const apiRespLen = document.getElementById("api-resp-len");
 
 // ========================
-// 4. API 信息更新
+// 4. 工具函数
 // ========================
-function updateApiUrlDisplay() {
-  const apiUrlEl = document.getElementById("api-url");
-  if (apiUrlEl) apiUrlEl.textContent = actualApiUrl;
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return text.replace(/[&<>"']/g, m => map[m]);
 }
 
+function autoResize(textarea) {
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.min(textarea.scrollHeight, parseInt(textarea.style.maxHeight)) + 'px';
+}
+
+// 更新 API 信息面板
 function updateApiInfo(status, respLen = null) {
   apiModel.textContent = "deepseek-v4-pro";
   apiRounds.textContent = conversationMessages.length - 1;
@@ -125,9 +120,15 @@ function updateApiInfo(status, respLen = null) {
   } else {
     apiRespLen.textContent = "—";
   }
-  // 同时确保 URL 显示保持最新（首次可能还未读取到，显示 Loading...）
-  updateApiUrlDisplay();
+  // 更新 API URL 显示
+  if (apiUrl) apiUrl.textContent = actualApiUrl;
 }
+
+// 动态更新 API URL 显示（响应头获取后调用）
+function updateApiUrlDisplay() {
+  if (apiUrl) apiUrl.textContent = actualApiUrl;
+}
+
 // ========================
 // 5. 登录 / 退出
 // ========================
@@ -233,6 +234,7 @@ userInput.addEventListener("keydown", (e) => {
     sendMessage();
   }
 });
+userInput.addEventListener("input", () => autoResize(userInput));
 
 async function sendMessage() {
   const text = userInput.value.trim();
@@ -244,7 +246,7 @@ async function sendMessage() {
   appendMessage("user", text);
   conversationMessages.push({ role: "user", content: text });
   userInput.value = "";
-  userInput.style.height = "auto";
+  autoResize(userInput);
   sendBtn.disabled = true;
 
   const assistantMsgDiv = appendMessage("assistant", "");
@@ -252,31 +254,28 @@ async function sendMessage() {
   const startTime = performance.now();
   updateApiInfo("Requesting...");
 
-  addLog("INFO", "API", "Sending chat request to Edge Function", {
-  model: "deepseek-v4-pro",
-  rounds: conversationMessages.length - 1
-});
+  addLog("INFO", "API", "Sending chat request to Edge Function", { model: "deepseek-v4-pro", rounds: conversationMessages.length - 1 });
 
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
     const accessToken = session?.access_token;
     if (!accessToken) throw new Error("Missing access token");
 
-const response = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-proxy`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${accessToken}`
-  },
-  body: JSON.stringify({ messages: conversationMessages })
-});
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-proxy`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ messages: conversationMessages })
+    });
 
-// 动态读取实际 API URL
-const returnedUrl = response.headers.get("X-Actual-API-URL");
-if (returnedUrl) {
-  actualApiUrl = returnedUrl;
-  updateApiUrlDisplay();   // 单独更新 URL 显示
-}
+    // 动态读取实际 API URL
+    const returnedUrl = response.headers.get("X-Actual-API-URL");
+    if (returnedUrl) {
+      actualApiUrl = returnedUrl;
+      updateApiUrlDisplay();
+    }
 
     addLog("INFO", "API", "Received HTTP response", { status: response.status, ok: response.ok });
 
@@ -348,6 +347,14 @@ function appendMessage(role, content) {
 // ========================
 // 7. 讨论区功能
 // ========================
+discussionInput.addEventListener("input", () => autoResize(discussionInput));
+discussionInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendDiscussion();
+  }
+});
+
 async function loadDiscussion() {
   if (!currentUser) return;
   addLog("INFO", "DISCUSS", "Loading discussion messages from DB");
@@ -380,11 +387,6 @@ async function loadDiscussion() {
   discussionMessages.scrollTop = discussionMessages.scrollHeight;
 }
 
-sendDiscussionBtn.addEventListener("click", sendDiscussion);
-discussionInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendDiscussion();
-});
-
 async function sendDiscussion() {
   const content = discussionInput.value.trim();
   if (!content || !currentUser) return;
@@ -413,10 +415,6 @@ async function sendDiscussion() {
 
   addLog("INFO", "DISCUSS", "Message inserted successfully, refreshing display", { preview: msgPreview });
   discussionInput.value = "";
+  autoResize(discussionInput);
   await loadDiscussion();
-}
-
-function escapeHtml(text) {
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-  return text.replace(/[&<>"']/g, m => map[m]);
 }
