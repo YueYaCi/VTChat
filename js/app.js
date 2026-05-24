@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentProvider = "deepseek";
   let modelDropdownVisible = false;
   let conversationMessages = [
-    { role: "system", content: "你是一个有帮助的助手，使用中文回答。" }
+    { role: "system", content: "你是VT4，你的主要工作是帮助用户完成编程作业，要求：1. 直接给出完整可运行的代码，不要讲思路。2. 代码必须使用初学者容易理解的简单语法，避免使用装饰器、生成器、列表推导式lambda、正则等高级特性。3.以常规、直白的方式，就像刚学的学生写出来的那样，用 for 循环、if/else、基础数据类型和内置函数（如 range、len、input、print 等）。4. 在代码前用中文简单说明思路5. 如果没有特别要求，不需要写注释，保持干净。7. 如果用户的问题不清晰缺少，只问最关键的信息，不要多聊" }
   ];
   let realtimeChannel = null;  // 用于存储实时订阅频道
 
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (apiModel) apiModel.textContent = currentModel;
     document.querySelector(".model-dropdown")?.remove();
     modelDropdownVisible = false;
-    conversationMessages = [{ role: "system", content: "你是一个有帮助的助手，使用中文回答。" }];
+    conversationMessages = [{ role: "system", content: "你是VT4，你的主要工作是帮助用户完成编程作业，要求：1. 直接给出完整可运行的代码，不要讲思路。2. 代码必须使用初学者容易理解的简单语法，避免使用装饰器、生成器、列表推导式lambda、正则等高级特性。3.以常规、直白的方式，就像刚学的学生写出来的那样，用 for 循环、if/else、基础数据类型和内置函数（如 range、len、input、print 等）。4. 在代码前用中文简单说明思路5. 如果没有特别要求，不需要写注释，保持干净。7. 如果用户的问题不清晰缺少，只问最关键的信息，不要多聊" }];
     if (chatMessages) chatMessages.innerHTML = "";
     addLog("INFO", "APP", "Conversation context cleared due to model switch");
   };
@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (passwordInput) passwordInput.value = "";
       if (loginError) loginError.textContent = "";
       if (chatMessages) chatMessages.innerHTML = "";
-      conversationMessages = [{ role: "system", content: "你是一个有帮助的助手，使用中文回答。" }];
+      conversationMessages = [{ role: "system", content: "你是VT4，你的主要工作是帮助用户完成编程作业，要求：1. 直接给出完整可运行的代码，不要讲思路。2. 代码必须使用初学者容易理解的简单语法，避免使用装饰器、生成器、列表推导式lambda、正则等高级特性。3.以常规、直白的方式，就像刚学的学生写出来的那样，用 for 循环、if/else、基础数据类型和内置函数（如 range、len、input、print 等）。4. 在代码前用中文简单说明思路5. 如果没有特别要求，不需要写注释，保持干净。7. 如果用户的问题不清晰缺少，只问最关键的信息，不要多聊" }];
       if (logContent) logContent.innerHTML = "";
       unsubscribeFromDiscussion();  // 取消实时订阅
       addLog("INFO", "AUTH", "User signed out, UI reset");
