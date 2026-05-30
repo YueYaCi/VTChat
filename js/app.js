@@ -11,7 +11,8 @@ const CONFIG = {
   SYSTEM_PROMPT: "你是VT4，你的主要工作是帮助用户完成编程作业，要求：1. 直接给出完整可运行的代码，不要讲思路。2. 代码必须使用初学者容易理解的简单语法，避免使用装饰器、生成器、列表推导式lambda、正则等高级特性。3.以常规、直白的方式，就像刚学的学生写出来的那样，用 for 循环、if/else、基础数据类型和内置函数（如 range、len、input、print 等）。4. 在代码前用中文简单说明思路。5. 如果没有特别要求，不需要写注释，保持干净。6. 如果用户的问题不清晰缺少，只问最关键的信息，不要多聊。",
   MODELS: [
     { name: "deepseek-v4-pro", provider: "deepseek", label: "DeepSeek V4 Pro", avatar: "avatars/deepseek.png" },
-    { name: "mimo-v2.5", provider: "mimo", label: "MiMo V2.5", avatar: "avatars/xiaomi.png" }
+    { name: "mimo-v2.5", provider: "mimo", label: "MiMo V2.5", avatar: "avatars/xiaomi.png" },
+    { name: "kimi-k2-6", provider: "kimi", label: "Kimi K2.6", avatar: "avatars/kimi.png" }
   ]
 };
 
@@ -81,102 +82,100 @@ const DOM = (() => {
 
 // ===================== 工具层 =====================
 const Utils = {
-    escapeHtml(text) {
-        if (typeof text !== 'string') return '';
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return text.replace(/[&<<>"']/g, m => map[m]);
-    },
+  escapeHtml(text) {
+    if (typeof text !== 'string') return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return text.replace(/[&<<>"']/g, m => map[m]);
+  },
 
-    autoResize(textarea) {
-        if (!textarea) return;
-        textarea.style.height = 'auto';
-        const maxHeight = parseInt(getComputedStyle(textarea).maxHeight) || 150;
-        textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
-    },
+  autoResize(textarea) {
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    const maxHeight = parseInt(getComputedStyle(textarea).maxHeight) || 150;
+    textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
+  },
 
-    formatTime(date) {
-        return new Date(date).toLocaleString("zh-CN", { hour12: false });
-    },
+  formatTime(date) {
+    return new Date(date).toLocaleString("zh-CN", { hour12: false });
+  },
 
-    setLoading(btn, isLoading) {
-        const text = btn.querySelector('.btn-text');
-        const loader = btn.querySelector('.btn-loader');
-        if (text) text.classList.toggle('hidden', isLoading);
-        if (loader) loader.classList.toggle('hidden', !isLoading);
-        btn.disabled = isLoading;
-    },
+  setLoading(btn, isLoading) {
+    const text = btn.querySelector('.btn-text');
+    const loader = btn.querySelector('.btn-loader');
+    if (text) text.classList.toggle('hidden', isLoading);
+    if (loader) loader.classList.toggle('hidden', !isLoading);
+    btn.disabled = isLoading;
+  },
 
-    addLog(level, component, message, details = {}) {
-        const now = new Date();
-        const timeStr = now.toTimeString().slice(0, 8) + "." + String(now.getMilliseconds()).padStart(3, "0");
-        const detailStr = Object.entries(details).map(([k, v]) => `${k}=${v}`).join(" ");
-        const line = `${timeStr} ${level.padEnd(5)} [${component.padEnd(7)}] ${message}${detailStr ? " — " + detailStr : ""}`;
+  addLog(level, component, message, details = {}) {
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 8) + "." + String(now.getMilliseconds()).padStart(3, "0");
+    const detailStr = Object.entries(details).map(([k, v]) => `${k}=${v}`).join(" ");
+    const line = `${timeStr} ${level.padEnd(5)} [${component.padEnd(7)}] ${message}${detailStr ? " — " + detailStr : ""}`;
 
-        if (DOM.log) {
-            const entry = document.createElement("div");
-            entry.className = `log-entry ${level.toLowerCase()}`;
-            entry.textContent = line;
-            DOM.log.appendChild(entry);
-            DOM.log.scrollTop = DOM.log.scrollHeight;
-        }
+    if (DOM.log) {
+      const entry = document.createElement("div");
+      entry.className = `log-entry ${level.toLowerCase()}`;
+      entry.textContent = line;
+      DOM.log.appendChild(entry);
+      DOM.log.scrollTop = DOM.log.scrollHeight;
+    }
 
-        const consoleMsg = { time: now.toISOString(), level, component, message, details };
-        const fn = { ERROR: console.error, WARN: console.warn, DEBUG: console.debug }[level] || console.info;
-        fn(consoleMsg);
-    },
+    const consoleMsg = { time: now.toISOString(), level, component, message, details };
+    const fn = { ERROR: console.error, WARN: console.warn, DEBUG: console.debug }[level] || console.info;
+    fn(consoleMsg);
+  },
 
-    // ---------- 轻量级语法高亮 ----------
-    highlightCode(code, lang) {
-        let html = Utils.escapeHtml(code);
-        if (!lang || lang === 'text') return html;
+  highlightCode(code, lang) {
+    let html = Utils.escapeHtml(code);
+    if (!lang || lang === 'text') return html;
 
-        const ph = [];
-        const stash = (str, type) => {
-            const key = `__X${Math.random().toString(36).slice(2, 8)}${ph.length}__`;
-            ph.push({ key, text: str, type });
-            return key;
-        };
-        const wrap = (text, cls) => `<span class="hl-${cls}">${text}</span>`;
+    const ph = [];
+    const stash = (str, type) => {
+      const key = `__X${Math.random().toString(36).slice(2, 8)}${ph.length}__`;
+      ph.push({ key, text: str, type });
+      return key;
+    };
+    const wrap = (text, cls) => `<span class="hl-${cls}">${text}</span>`;
 
-        if (lang === 'python' || lang === 'py') {
-            html = html.replace(/("""[\s\S]*?"""|'''[\s\S]*?''')/g, m => stash(m, 'string'));
-            html = html.replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, m => stash(m, 'string'));
-            html = html.replace(/(#.*$)/gm, m => stash(m, 'comment'));
-            html = html.replace(/\b(def|class|if|else|elif|for|while|return|import|from|as|try|except|finally|with|True|False|None|and|or|not|in|is|lambda|yield|raise|break|continue|pass|global|nonlocal|assert|del|async|await)\b/g, m => wrap(m, 'keyword'));
-            html = html.replace(/\b(\d+\.?\d*)\b/g, m => wrap(m, 'number'));
-            html = html.replace(/\b([A-Za-z_]\w*)\s*(?=\()/g, m => wrap(m.slice(0, -1), 'function') + ' ');
-        } else if (['javascript', 'js', 'typescript', 'ts', 'json'].includes(lang)) {
-            html = html.replace(/(\/\/.*$)/gm, m => stash(m, 'comment'));
-            html = html.replace(/(\/\*[\s\S]*?\*\/)/g, m => stash(m, 'comment'));
-            html = html.replace(/(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, m => stash(m, 'string'));
-            html = html.replace(/\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|default|try|catch|finally|throw|new|this|typeof|instanceof|in|of|void|delete|true|false|null|undefined|async|await|class|extends|export|import|from|yield|static|get|set)\b/g, m => wrap(m, 'keyword'));
-            html = html.replace(/\b(\d+\.?\d*)\b/g, m => wrap(m, 'number'));
-            html = html.replace(/\b([A-Za-z_]\w*)\s*(?=\()/g, m => wrap(m.slice(0, -1), 'function') + ' ');
-        }
+    if (lang === 'python' || lang === 'py') {
+      html = html.replace(/("""[\s\S]*?"""|'''[\s\S]*?''')/g, m => stash(m, 'string'));
+      html = html.replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, m => stash(m, 'string'));
+      html = html.replace(/(#.*$)/gm, m => stash(m, 'comment'));
+      html = html.replace(/\b(def|class|if|else|elif|for|while|return|import|from|as|try|except|finally|with|True|False|None|and|or|not|in|is|lambda|yield|raise|break|continue|pass|global|nonlocal|assert|del|async|await)\b/g, m => wrap(m, 'keyword'));
+      html = html.replace(/\b(\d+\.?\d*)\b/g, m => wrap(m, 'number'));
+      html = html.replace(/\b([A-Za-z_]\w*)\s*(?=\()/g, m => wrap(m.slice(0, -1), 'function') + ' ');
+    } else if (['javascript', 'js', 'typescript', 'ts', 'json'].includes(lang)) {
+      html = html.replace(/(\/\/.*$)/gm, m => stash(m, 'comment'));
+      html = html.replace(/(\/\*[\s\S]*?\*\/)/g, m => stash(m, 'comment'));
+      html = html.replace(/(`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, m => stash(m, 'string'));
+      html = html.replace(/\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|default|try|catch|finally|throw|new|this|typeof|instanceof|in|of|void|delete|true|false|null|undefined|async|await|class|extends|export|import|from|yield|static|get|set)\b/g, m => wrap(m, 'keyword'));
+      html = html.replace(/\b(\d+\.?\d*)\b/g, m => wrap(m, 'number'));
+      html = html.replace(/\b([A-Za-z_]\w*)\s*(?=\()/g, m => wrap(m.slice(0, -1), 'function') + ' ');
+    }
 
-        ph.forEach(({ key, text, type }) => {
-            html = html.split(key).join(wrap(text, type));
-        });
-        return html;
-    },
+    ph.forEach(({ key, text, type }) => {
+      html = html.split(key).join(wrap(text, type));
+    });
+    return html;
+  },
 
-    // ---------- Markdown 渲染（含代码块头部+复制+高亮） ----------
-    formatContent(text) {
-        if (!text) return '';
-        const blocks = [];
-        let idx = 0;
+  formatContent(text) {
+    if (!text) return '';
+    const blocks = [];
+    let idx = 0;
 
-        const replaced = text.replace(/```(\w*)\n([\s\S]*?)\n```/g, (match, lang, code) => {
-            const placeholder = `__CODE_BLOCK_${idx++}_${Math.random().toString(36).slice(2)}__`;
-            blocks.push({ placeholder, lang, rawCode: code });
-            return placeholder;
-        });
+    const replaced = text.replace(/```(\w*)\n([\s\S]*?)\n```/g, (match, lang, code) => {
+      const placeholder = `__CODE_BLOCK_${idx++}_${Math.random().toString(36).slice(2)}__`;
+      blocks.push({ placeholder, lang, rawCode: code });
+      return placeholder;
+    });
 
-        let html = Utils.escapeHtml(replaced);
+    let html = Utils.escapeHtml(replaced);
 
-        blocks.forEach(({ placeholder, lang, rawCode }) => {
-            const highlighted = Utils.highlightCode(rawCode, lang);
-            const blockHtml = `
+    blocks.forEach(({ placeholder, lang, rawCode }) => {
+      const highlighted = Utils.highlightCode(rawCode, lang);
+      const blockHtml = `
         <div class="code-block-outer">
           <div class="code-block-header">
             <span class="code-lang">${lang || 'text'}</span>
@@ -188,12 +187,12 @@ const Utils = {
           <pre class="code-block-wrapper"><code class="code-block language-${lang}">${highlighted}</code></pre>
         </div>
       `;
-            html = html.split(placeholder).join(blockHtml);
-        });
+      html = html.split(placeholder).join(blockHtml);
+    });
 
-        html = html.replace(/`([^`]+)`/g, '<code class="code-inline">$1</code>');
-        return html;
-    }
+    html = html.replace(/`([^`]+)`/g, '<code class="code-inline">$1</code>');
+    return html;
+  }
 };
 
 // ===================== Supabase 客户端 =====================
@@ -392,9 +391,10 @@ const UI = {
     const row = document.createElement("div");
     row.className = `message-row ${role}`;
 
+    // FIX: 动态查找当前模型头像，避免新增模型后硬编码失效
     const avatarSrc = role === 'user'
       ? State.avatar
-      : (State.model.provider === 'mimo' ? 'avatars/xiaomi.png' : 'avatars/deepseek.png');
+      : (CONFIG.MODELS.find(m => m.provider === State.model.provider)?.avatar || 'avatars/deepseek.png');
 
     row.innerHTML = `<img class="message-avatar" src="${avatarSrc}" alt="" onerror="this.style.visibility='hidden'">`;
 
@@ -475,7 +475,6 @@ const UI = {
     UI.closeDropdown();
     Utils.addLog("INFO", "APP", "Context cleared");
 
-    // 若设置面板正打开，刷新参数列表
     if (Settings.isOpen) Settings.render();
   },
 
@@ -673,11 +672,13 @@ const Discuss = {
   }
 };
 
-// ===================== 新增：高级设置模块 =====================
+// ===================== 高级设置模块 =====================
 const Settings = {
   defaults: {
     deepseek: { temperature: 1.0, max_tokens: 4096, top_p: 1.0, presence_penalty: 0, frequency_penalty: 0 },
-    mimo: { temperature: 0.7, max_tokens: 4096, top_p: 1.0 }
+    mimo: { temperature: 0.7, max_tokens: 4096, top_p: 1.0 },
+    // Kimi: temperature 范围 [0,1]；思考模式固定 1.0，非思考模式固定 0.6
+    kimi: { temperature: 1.0, max_tokens: 4096, top_p: 1.0, presence_penalty: 0, frequency_penalty: 0 }
   },
 
   params: {},
@@ -694,7 +695,8 @@ const Settings = {
   },
 
   get() {
-    return this.params[State.model.provider] || {};
+    const provider = State.model.provider;
+    return this.params[provider] || {};
   },
 
   buildSlider(key, label, value, min, max, step, desc) {
@@ -735,15 +737,22 @@ const Settings = {
 
     let html = '';
     if (provider === 'deepseek') {
-      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '采样温度，调节概率分布的熵值。较高值使概率分布更平坦，生成结果更具创造性；较低值使分布更尖锐，生成结果更确定。（范围：0–2）');
+      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '采样温度，控制输出随机性。较高值使概率分布更平坦，生成结果更具创造性；较低值使分布更尖锐，生成结果更确定。（范围：0–2）');
       html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 8192, '生成 token 的上限，控制单次响应的最大长度。（范围：1–8192）');
       html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样（Nucleus Sampling）阈值，仅从高概率累积的 top-p 比例词汇中采样。（范围：0–1）');
       html += this.buildSlider('presence_penalty', 'Presence Penalty', values.presence_penalty, -2, 2, 0.1, '存在惩罚，对已出现过的 token 施加衰减，提升话题新颖度与主题切换概率。（范围：-2.0–2.0）');
       html += this.buildSlider('frequency_penalty', 'Frequency Penalty', values.frequency_penalty, -2, 2, 0.1, '频率惩罚，按 token 出现频次累积衰减，降低重复用词与短语循环概率。（范围：-2.0–2.0）');
     } else if (provider === 'mimo') {
-      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '采样温度，调节概率分布的熵值。较高值使概率分布更平坦，生成结果更具创造性；较低值使分布更尖锐，生成结果更确定。（范围：0–2）');
+      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '采样温度，调节概率分布的熵值。高值增强创造性，低值增强一致性。（范围：0–2）');
       html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 32768, '最大生成 token 数，限制模型输出的总长度。（范围：1–32768）');
       html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样阈值，控制候选词集的累积概率质量。（范围：0–1）');
+    } else if (provider === 'kimi') {
+      // Kimi 官方约束：temperature 范围 [0,1]；思考模式固定 1.0，非思考模式固定 0.6
+      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 1, 0.1, '【Kimi 约束】取值范围 [0–1]。思考模式固定 1.0（默认），非思考模式固定 0.6；建议不要显式设置，或严格按模型要求填写，否则将返回 invalid_request_error。');
+      html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 8192, '生成 token 的上限，控制单次响应的最大长度。（范围：1–8192）');
+      html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样（Nucleus Sampling）阈值。（范围：0–1）');
+      html += this.buildSlider('presence_penalty', 'Presence Penalty', values.presence_penalty, -2, 2, 0.1, '存在惩罚，提升话题新颖度。（范围：-2.0–2.0）');
+      html += this.buildSlider('frequency_penalty', 'Frequency Penalty', values.frequency_penalty, -2, 2, 0.1, '频率惩罚，降低重复用词概率。（范围：-2.0–2.0）');
     }
 
     container.innerHTML = html;
@@ -845,6 +854,8 @@ const Events = {
         Settings.toggle();
       }
     });
+
+    // 代码块复制（事件委托）
     DOM.chat.messages.addEventListener('click', (e) => {
       const btn = e.target.closest('.code-copy-btn');
       if (!btn) return;
