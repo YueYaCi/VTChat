@@ -381,7 +381,7 @@ const UI = {
       <img class="discuss-avatar" src="avatars/${msg.nickname}.png" alt="" onerror="this.style.visibility='hidden'">
       <div class="discuss-content-wrapper">
         <div class="discuss-content">
-          <span class="discuss-nickname">${Utils.escapeHtml(msg.nickname)}</span>${Utils.formatContent(msg.content)}
+          <span class="discuss-nickname">${Utils.escapeHtml(msg.nickname)}</span>${Utils.escapeHtml(msg.content).replace(/\n/g, '<br>')}
         </div>
         ${timeStr ? `<div class="discuss-time">${timeStr}</div>` : ''}
       </div>
@@ -688,15 +688,15 @@ const Settings = {
 
     let html = '';
     if (provider === 'deepseek') {
-      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '随机性：越高回答越发散，越低越确定（0~2）');
-      html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 8192, '生成文本的最大长度（1~8192）');
-      html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样概率阈值（0~1）');
-      html += this.buildSlider('presence_penalty', 'Presence Penalty', values.presence_penalty, -2, 2, 0.1, '话题新颖度惩罚，越高越避免重复主题（-2~2）');
-      html += this.buildSlider('frequency_penalty', 'Frequency Penalty', values.frequency_penalty, -2, 2, 0.1, '用词重复度惩罚，越高越避免重复用词（-2~2）');
+      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '采样温度，调节概率分布的熵值。较高值使概率分布更平坦，生成结果更具创造性；较低值使分布更尖锐，生成结果更确定。（范围：0–2）');
+      html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 8192, '生成 token 的上限，控制单次响应的最大长度。（范围：1–8192）');
+      html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样（Nucleus Sampling）阈值，仅从高概率累积的 top-p 比例词汇中采样。（范围：0–1）');
+      html += this.buildSlider('presence_penalty', 'Presence Penalty', values.presence_penalty, -2, 2, 0.1, '存在惩罚，对已出现过的 token 施加衰减，提升话题新颖度与主题切换概率。（范围：-2.0–2.0）');
+      html += this.buildSlider('frequency_penalty', 'Frequency Penalty', values.frequency_penalty, -2, 2, 0.1, '频率惩罚，按 token 出现频次累积衰减，降低重复用词与短语循环概率。（范围：-2.0–2.0）');
     } else if (provider === 'mimo') {
-      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '随机性：越高回答越发散，越低越确定（0~2）');
-      html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 32768, '生成文本的最大长度（1~32768）');
-      html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样概率阈值（0~1）');
+      html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 2, 0.1, '采样温度，调节概率分布的熵值。较高值使概率分布更平坦，生成结果更具创造性；较低值使分布更尖锐，生成结果更确定。（范围：0–2）');
+      html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 32768, '最大生成 token 数，限制模型输出的总长度。（范围：1–32768）');
+      html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样阈值，控制候选词集的累积概率质量。（范围：0–1）');
     }
 
     container.innerHTML = html;
