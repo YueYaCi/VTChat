@@ -682,7 +682,7 @@ const Settings = {
   params: {},
   isOpen: false,
 
-  init() {
+  init: function() {  // ← 改为传统函数语法，确保 this 绑定
     try {
       const saved = sessionStorage.getItem('dc_api_settings');
       this.params = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(this.defaults));
@@ -692,7 +692,13 @@ const Settings = {
     this.bind();
   },
 
-  buildSlider(key, label, value, min, max, step, desc, disabled = false) {
+  get: function() {  // ← 改为传统函数语法
+    const provider = State.model.provider;
+    return this.params[provider] || {};
+  },
+
+  buildSlider: function(key, label, value, min, max, step, desc, disabled) {  // ← 改为传统函数语法
+    disabled = disabled || false;
     const disAttr = disabled ? 'disabled' : '';
     const disClass = disabled ? 'setting-disabled' : '';
     return `
@@ -708,7 +714,8 @@ const Settings = {
     `;
   },
 
-  buildNumber(key, label, value, min, max, desc, disabled = false) {
+  buildNumber: function(key, label, value, min, max, desc, disabled) {  // ← 改为传统函数语法
+    disabled = disabled || false;
     const disAttr = disabled ? 'disabled' : '';
     const disClass = disabled ? 'setting-disabled' : '';
     return `
@@ -724,7 +731,7 @@ const Settings = {
     `;
   },
 
-  render() {
+  render: function() {  // ← 改为传统函数语法
     const container = DOM.api.settingsContent;
     const provider = State.model.provider;
     const values = this.get();
@@ -744,7 +751,6 @@ const Settings = {
       html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 32768, '最大生成 token 数，限制模型输出的总长度。（范围：1–32768）');
       html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样阈值，控制候选词集的累积概率质量。（范围：0–1）');
     } else if (provider === 'kimi') {
-      // 新增：问号图标 + 悬浮提示
       const tooltipHtml = `
         <div class="settings-tooltip-wrapper">
           <button class="settings-help-btn" aria-label="参数说明">?</button>
@@ -765,7 +771,6 @@ const Settings = {
         </div>
       `;
 
-      // 在 header 中插入问号
       const headerEl = DOM.api.settingsPanel.querySelector('.settings-header');
       if (headerEl && !headerEl.querySelector('.settings-help-btn')) {
         headerEl.insertAdjacentHTML('beforeend', tooltipHtml);
@@ -794,7 +799,7 @@ const Settings = {
     });
   },
 
-  toggle() {
+  toggle: function() {  // ← 改为传统函数语法
     const panel = DOM.api.settingsPanel;
     const logArea = DOM.api.logArea;
     const btn = DOM.api.settingsBtn;
@@ -811,13 +816,12 @@ const Settings = {
       panel.classList.add('hidden');
       logArea.classList.remove('hidden');
       btn.classList.remove('active');
-      // 清理问号图标，避免下次渲染重复
       const helpBtn = panel.querySelector('.settings-tooltip-wrapper');
       if (helpBtn) helpBtn.remove();
     }
   },
 
-  reset() {
+  reset: function() {  // ← 改为传统函数语法
     const provider = State.model.provider;
     this.params[provider] = JSON.parse(JSON.stringify(this.defaults[provider]));
     sessionStorage.setItem('dc_api_settings', JSON.stringify(this.params));
@@ -825,7 +829,7 @@ const Settings = {
     Utils.addLog("INFO", "SETTINGS", "Reset to defaults", { provider });
   },
 
-  bind() {
+  bind: function() {  // ← 改为传统函数语法
     DOM.api.settingsBtn.addEventListener('click', () => this.toggle());
     DOM.api.settingsClose.addEventListener('click', () => this.toggle());
     DOM.api.settingsReset.addEventListener('click', () => this.reset());
