@@ -55,7 +55,8 @@ const DOM = (() => {
     discuss: {
       messages: $("discussion-messages"),
       input: $("discussion-input"),
-      send: $("send-discussion-btn")
+      send: $("send-discussion-btn"),
+      linksBtn: $("links-btn")
     },
     api: {
       model: $("api-model"),
@@ -671,6 +672,66 @@ const Discuss = {
   }
 };
 
+// ===================== 网址弹窗模块 =====================
+const Links = {
+  // 在这里填充网址数据
+  data: [
+    { name: "VTChat 仓库", url: "https://github.com/YueYaCi/VTChat" },
+    { name: "Supabase", url: "https://supabase.com" },
+    { name: "DeepSeek状态", url: "https://status.deepseek.com/" },
+    // 继续添加...
+  ],
+
+  open() {
+    const existing = document.querySelector('.links-modal-overlay');
+    if (existing) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'links-modal-overlay';
+
+    const itemsHtml = this.data.map(item => `
+      <div class="link-item">
+        <a href="${item.url}" target="_blank" rel="noopener noreferrer">${item.name}</a>
+        <span class="link-url">${item.url}</span>
+      </div>
+    `).join('');
+
+    overlay.innerHTML = `
+      <div class="links-modal">
+        <div class="links-modal-header">
+          <h4>常用网址</h4>
+          <button class="links-modal-close" aria-label="关闭">✕</button>
+        </div>
+        <div class="links-modal-body">
+          ${itemsHtml}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // 关闭逻辑
+    const closeBtn = overlay.querySelector('.links-modal-close');
+    closeBtn.addEventListener('click', () => this.close());
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) this.close();
+    });
+
+    document.addEventListener('keydown', this._escHandler = (e) => {
+      if (e.key === 'Escape') this.close();
+    });
+  },
+
+  close() {
+    const overlay = document.querySelector('.links-modal-overlay');
+    if (overlay) {
+      overlay.remove();
+      document.removeEventListener('keydown', this._escHandler);
+    }
+  }
+};
+
 // ===================== 高级设置模块 =====================
 const Settings = {
   defaults: {
@@ -937,6 +998,10 @@ const App = {
   init() {
     supabaseClient = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
     Events.bind();
+    // 网址弹窗
+    if (DOM.discuss.linksBtn) {
+      DOM.discuss.linksBtn.addEventListener('click', () => Links.open());
+    }
     Settings.init();
     Auth.restore();
     Utils.addLog("INFO", "APP", "Application initialized");
