@@ -731,13 +731,17 @@ const Settings = {
     `;
   },
 
-  render: function() {  // ← 改为传统函数语法
+  render: function() {
     const container = DOM.api.settingsContent;
     const provider = State.model.provider;
     const values = this.get();
     const modelLabel = State.model.label;
 
     DOM.api.settingsModelName.textContent = modelLabel;
+
+    // 清理旧的问号图标（避免切换模型时重复）
+    const oldHelp = DOM.api.settingsPanel.querySelector('.settings-tooltip-wrapper');
+    if (oldHelp) oldHelp.remove();
 
     let html = '';
     if (provider === 'deepseek') {
@@ -751,31 +755,6 @@ const Settings = {
       html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 32768, '最大生成 token 数，限制模型输出的总长度。（范围：1–32768）');
       html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '核采样阈值，控制候选词集的累积概率质量。（范围：0–1）');
     } else if (provider === 'kimi') {
-      const tooltipHtml = `
-        <div class="settings-tooltip-wrapper">
-          <button class="settings-help-btn" aria-label="参数说明">?</button>
-          <div class="settings-tooltip">
-            <div class="tooltip-title">Kimi K2.6 参数约束</div>
-            <div class="tooltip-body">
-              <p>以下参数已由模型固定，不可调整：</p>
-              <div class="tooltip-code">
-                <div class="code-line"><span class="code-key">temperature</span>: <span class="code-val">思考模式固定 1.0，非思考模式固定 0.6</span></div>
-                <div class="code-line"><span class="code-key">top_p</span>: <span class="code-val">固定 0.95</span></div>
-                <div class="code-line"><span class="code-key">n</span>: <span class="code-val">固定 1</span></div>
-                <div class="code-line"><span class="code-key">presence_penalty</span>: <span class="code-val">固定 0.0</span></div>
-                <div class="code-line"><span class="code-key">frequency_penalty</span>: <span class="code-val">固定 0.0</span></div>
-              </div>
-              <p class="tooltip-note">建议不要手动设置这些字段，使用默认值即可。</p>
-            </div>
-          </div>
-        </div>
-      `;
-
-      const headerEl = DOM.api.settingsPanel.querySelector('.settings-header');
-      if (headerEl && !headerEl.querySelector('.settings-help-btn')) {
-        headerEl.insertAdjacentHTML('beforeend', tooltipHtml);
-      }
-
       html += this.buildSlider('temperature', 'Temperature', values.temperature, 0, 1, 0.1, '【固定值】思考模式固定 1.0，非思考模式固定 0.6。Kimi K2.6 不接受其他值。', true);
       html += this.buildNumber('max_tokens', 'Max Tokens', values.max_tokens, 1, 32768, '【可调整】生成 token 上限，默认 32768。（范围：1–32768）', false);
       html += this.buildSlider('top_p', 'Top P', values.top_p, 0, 1, 0.05, '【固定值】Kimi K2.6 强制使用 0.95，不可更改。', true);
@@ -784,6 +763,48 @@ const Settings = {
     }
 
     container.innerHTML = html;
+
+    // 仅在 Kimi 模式下插入问号图标（移到 header 最右侧，不顶掉关闭按钮）
+    if (provider === 'kimi') {
+      const headerEl = DOM.api.settingsPanel.querySelector('.settings-header');
+      if (headerEl && !headerEl.querySelector('.settings-tooltip-wrapper')) {
+        const tooltipHtml = `
+          <div class="settings-tooltip-wrapper">
+            <button class="settings-help-btn" aria-label="参数说明">?</button>
+            <div class="settings-tooltip">
+              <div class="tooltip-title">Kimi K2.6 参数约束</div>
+              <div class="tooltip-body">
+                <p>以下参数已由模型固定，不可调整：</p>
+                <div class="tooltip-code">
+                  <div class="code-line"><span class="code-key">temperature</span>: <span class="code-val">思考模式固定 1.0，非思考模式固定 0.6</span></div>
+                  <div class="code-line"><span class="code-key">top_p</span>: <span class="code-val">固定 0.95</span></div>
+                  <div class="code-line"><span class="code-key">n</span>: <span class="code-val">固定 1</span></div>
+                  <div class="code-line"><span class="code-key">presence_penalty</span>: <span class="code-val">固定 0.0</span></div>
+                  <div class="code-line"><span class="code-key">frequency_penalty</span>: <span class="code-val">固定 0.0</span></div>
+                </div>
+                <p class="tooltip-note">建议不要手动设置这些字段，使用默认值即可。</p>
+              </div>
+            </div>
+          </div>
+        `;
+        headerEl.insertAdjacentHTML('beforeend', tooltipHtml);
+
+        // 绑定问号点击事件（切换显示/隐藏）
+        const helpBtn = headerEl.querySelector('.settings-help-btn');
+        const tooltip = headerEl.querySelector('.settings-tooltip');
+        if (helpBtn && tooltip) {
+          helpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = tooltip.classList.contains('visible');
+            // 先关闭所有其他 tooltip
+            document.querySelectorAll('.settings-tooltip.visible').forEach(t => t.classList.remove('visible'));
+            if (!isVisible) {
+              tooltip.classList.add('visible');
+            }
+          });
+        }
+      }
+    }
 
     container.querySelectorAll('input:not([disabled])').forEach(inp => {
       inp.addEventListener('input', (e) => {
@@ -874,7 +895,7 @@ const Events = {
       if (State.dropdownOpen && !e.target.closest("#api-info")) {
         UI.closeDropdown();
       }
-      // 点击外部关闭 tooltip
+      // 点击外部关闭 tooltip（但排除问号按钮本身）
       if (!e.target.closest('.settings-tooltip-wrapper')) {
         document.querySelectorAll('.settings-tooltip.visible').forEach(t => t.classList.remove('visible'));
       }
