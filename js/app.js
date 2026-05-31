@@ -334,7 +334,7 @@ const API = {
         body: JSON.stringify({
           messages: [{ role: "user", content: "Hi" }],
           provider: State.model.provider,
-          settings: (typeof Settings !== 'undefined' && Settings.get) ? Settings.get() : {}
+          settings: Settings.get()
         })
       });
 
@@ -514,7 +514,7 @@ const Chat = {
         body: JSON.stringify({
           messages: State.messages,
           provider: State.model.provider,
-          settings: (typeof Settings !== 'undefined' && Settings.get) ? Settings.get() : {}
+          settings: Settings.get()
         })
       });
 
