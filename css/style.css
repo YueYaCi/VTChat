@@ -1,3 +1,4 @@
+
 /* ==================== 根变量与全局重置 ==================== */
 :root {
   --color-bg: #0d1117;
@@ -575,12 +576,17 @@ body::before {
   color: var(--color-error);
 }
 
-.links-modal-body {
-  padding: 1rem 1.2rem;
-  overflow-y: auto;
+.links-modal {
+  background: rgba(22, 27, 34, 0.95);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  width: 90%;
+  max-width: 420px;
+  /* max-height: 70vh; */ 
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  animation: msgIn 0.2s ease;
 }
 
 .link-item {
