@@ -678,7 +678,11 @@ const Links = {
   data: [
     { name: "VTChat 仓库", url: "https://github.com/YueYaCi/VTChat" },
     { name: "Supabase", url: "https://supabase.com" },
-    { name: "DeepSeek状态", url: "https://status.deepseek.com/" },
+    { name: "DeepSeek", url: "https://www.deepseek.com/" },
+    { name: "DeepSeek Status", url: "https://status.deepseek.com/" },
+    { name: "=========", url: "https://www.taptap.cn/app/782330" },
+    { name: "桌游", url: "https://game.hullqin.cn/" },
+    { name: "bilibili", url: "https://www.bilibili.com/" },
     // 继续添加...
   ],
 
